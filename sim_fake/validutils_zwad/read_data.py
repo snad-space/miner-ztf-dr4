@@ -31,7 +31,7 @@ def to_dataframe(data):
     """Converts from a python dictionary to a pandas dataframe"""
     # For background noise. Add noise to better match real data
     # Background, mag units
-    mag_backg = 19 # mag units
+    mag_backg = 20 # mag units
     sigma_mbackg = (0.0297*mag_backg-0.4179) # page 12, Malanchev et al. 2021, mag units
     # Background, flux units
     mu_fbackg = 10**(-0.4*(mag_backg-27.5)) # mean background, flux units 
