@@ -29,15 +29,28 @@ def read_data(filename):
 
 def to_dataframe(data):
     """Converts from a python dictionary to a pandas dataframe"""
+    # For background noise. Add noise to better match real data
+    # Background, mag units
+    mag_backg = 20 # mag units
+    sigma_mbackg = (0.0297*mag_backg-0.4179) # page 12, Malanchev et al. 2021, mag units
+    # Background, flux units
+    mu_fbackg = 10**(-0.4*(mag_backg-27.5)) # mean background, flux units 
+    sigma_fbackg = 0.4*np.log(10) * mu_fbackg * sigma_mbackg # sigma background, flux units
+    
     for idx in data:
         sn = data[idx]
         for filt in LSST_FILTERS:
             if np.array(sn[filt]['mjd']) is not None:
                 sn['mjd_%s' % filt] = np.array(sn[filt]['mjd'])
 
-                # NOTE: add template background to better mimick limits
-                sn['fluxcal_%s' % filt] = np.array(sn[filt]['fluxcal']) + 10**(-0.4*(20-27.5))
-                sn['fluxcalerr_%s' % filt] = np.array(sn[filt]['fluxcalerr'])
+                # For background noise. Add noise to better match real data
+                rng = np.random.default_rng(42)
+                flux_backg = rng.normal(mu_fbackg, sigma_fbackg)  # flux background
+                
+                # F = F_SNANA + F_background
+                sn['fluxcal_%s' % filt] = np.array(sn[filt]['fluxcal']) + flux_backg 
+                # sigma_F^2 = sigma_SNANA^2 +sigma_F,backg^2
+                sn['fluxcalerr_%s' % filt] = np.sqrt(np.array(sn[filt]['fluxcalerr'])**2 + sigma_fbackg**2)
 
                 # photflag
                 sn['photflag_%s' % filt] = np.array(sn[filt]['photflag'])
@@ -67,8 +80,10 @@ def to_dataframe(data):
                 sn['magobs_%s' % filt] = np.array(np.median(sn['delta_t_%s' % filt]))
 
 
-                # Mask to keep only photflag obs
-                mask = (sn['snr_%s' % filt] >= 5) #& (sn['magerr_%s' % filt] != 0) #& (sn['photflag_%s' % filt] != 0)
+                # Mask to keep only  SNR >= 5 AND MAG BRIGHTER THAN 21.5 !!!
+                # Although photflags are left, obs have added flux to make brighter and SNR.
+                # SO SNR does not correspond to original photflag
+                mask = (sn['snr_%s' % filt] >= 5) & (sn['mag_%s' % filt] <= 21.5) #& (sn['photflag_%s' % filt] != 0)
                 sn['snr_%s' % filt] = sn['snr_%s' % filt][mask]
                 sn['mag_%s' % filt] = sn['mag_%s' % filt][mask]
                 sn['magerr_%s' % filt] = sn['magerr_%s' % filt][mask]
